@@ -1,9 +1,9 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import GithubProvider from "next-auth/providers/github";
-import { stripe } from "@/lib/stripe";
 
 export const authOptions: NextAuthOptions = {
+  // Providers are included only if their env vars exist.
   providers: [
     ...(process.env.GOOGLE_ID && process.env.GOOGLE_SECRET
       ? [GoogleProvider({ clientId: process.env.GOOGLE_ID!, clientSecret: process.env.GOOGLE_SECRET! })]
@@ -13,30 +13,11 @@ export const authOptions: NextAuthOptions = {
       : []),
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      // Voorbeeld: Stripe klant koppelen op eerste login
-      if (user && !token.stripeCustomerId) {
-        try {
-          const customer = await stripe.customers.create({
-            email: user.email || undefined,
-            name: user.name || undefined
-          });
-          (token as any).stripeCustomerId = customer.id;
-        } catch {
-          // non-fatal
-        }
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        (session.user as any).stripeCustomerId = (token as any).stripeCustomerId;
-      }
+    async session({ session }) {
+      // Keep session minimal; no external SDKs here to ensure Edge/Node compatibility
       return session;
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
-  pages: {
-    signIn: "/login",
-  }
+  pages: { signIn: "/login" },
 };
